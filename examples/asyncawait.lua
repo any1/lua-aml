@@ -34,12 +34,12 @@ function read_line_from_stdin()
 	end)
 end
 
-async(function(actx)
+async(function(await)
 	print "Hi! How long should I sleep?"
 
 	local seconds = nil
 	while seconds == nil do
-		seconds = tonumber(actx:await(read_line_from_stdin()))
+		seconds = tonumber(await(read_line_from_stdin()))
 		if seconds == nil then
 			print "That's not a number. Try again!"
 		end
@@ -51,7 +51,7 @@ async(function(actx)
 
 	while (seconds ~= 0) do
 		print(tostring(seconds) .. "...")
-		actx:await(sleep(1000))
+		await(sleep(1000))
 		seconds = seconds - 1;
 	end
 
