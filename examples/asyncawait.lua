@@ -4,6 +4,8 @@ local aml = require 'aml'
 local promise = require 'promise'
 local async = require 'async'
 
+local SIGINT = 2
+
 local loop = aml.new()
 
 local do_run = true
@@ -34,6 +36,16 @@ function read_line_from_stdin()
 	end)
 end
 
+function signal(signo)
+	return promise(function(resolve)
+		local sig = aml.signal_new(signo, function(sig)
+			emit_event(resolve)
+			loop:stop(sig)
+		end)
+		loop:start(sig)
+	end)
+end
+
 async(function(await)
 	print "Hi! How long should I sleep?"
 
@@ -56,6 +68,15 @@ async(function(await)
 	end
 
 	print "Done!"
+
+	do_run = false
+	loop:exit()
+end)
+
+async(function(await)
+	await(signal(SIGINT))
+
+	print "Received signal. Exiting..."
 
 	do_run = false
 	loop:exit()
