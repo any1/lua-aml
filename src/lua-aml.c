@@ -31,6 +31,13 @@ struct l_aml_ticker {
 	int cb_ref;
 };
 
+struct l_aml_signal {
+	struct aml_signal* sig;
+	struct lua_State* L;
+	int self_ref;
+	int cb_ref;
+};
+
 static int l_aml_new(struct lua_State* L)
 {
 	struct aml* aml = aml_new();
@@ -216,6 +223,53 @@ static int l_aml_ticker_gc(struct lua_State* L)
 	return 0;
 }
 
+static void l_aml_signal_callback(void* obj)
+{
+	 struct l_aml_signal* ud = aml_get_userdata(obj);
+
+	 lua_rawgeti(ud->L, LUA_REGISTRYINDEX, ud->cb_ref);
+	 lua_rawgeti(ud->L, LUA_REGISTRYINDEX, ud->self_ref);
+
+	 lua_call(ud->L, 1, 0);
+}
+
+static void l_aml_signal_free(void* userdata)
+{
+	struct l_aml_signal* ud = userdata;
+	luaL_unref(ud->L, LUA_REGISTRYINDEX, ud->cb_ref);
+	luaL_unref(ud->L, LUA_REGISTRYINDEX, ud->self_ref);
+}
+
+static int l_aml_signal_new(struct lua_State* L)
+{
+	int signo = luaL_checkinteger(L, 1);
+	luaL_checktype(L, 2, LUA_TFUNCTION);
+
+	struct l_aml_signal* ud = lua_newuserdata(L, sizeof(*ud));
+	ud->L = L;
+
+	ud->sig = aml_signal_new(signo, l_aml_signal_callback, ud,
+			l_aml_signal_free);
+
+	lua_pushvalue(L, -1);
+	ud->self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+	lua_pushvalue(L, 2);
+	ud->cb_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+	luaL_getmetatable(L, "meta_aml_signal");
+	lua_setmetatable(L, -2);
+
+	return 1;
+}
+
+static int l_aml_signal_gc(struct lua_State* L)
+{
+	struct l_aml_signal* ud = luaL_checkudata(L, 1, "meta_aml_signal");
+	aml_unref(ud->sig);
+	return 0;
+}
+
 static int l_aml_poll(struct lua_State* L)
 {
 	struct aml** ud = luaL_checkudata(L, 1, "meta_aml");
@@ -351,6 +405,17 @@ int luaopen_aml(struct lua_State* L)
 	luaL_register(L, NULL, l_aml_ticker_functions);
 	lua_setfield(L, -1, "__index");
 
+	static const struct luaL_Reg l_aml_signal_functions[] = {
+		{ "__gc", l_aml_signal_gc },
+// TODO:
+//		{ "get_signo", l_aml_timer_set_duration },
+		{ NULL, NULL }
+	};
+
+	luaL_newmetatable(L, "meta_aml_signal");
+	luaL_register(L, NULL, l_aml_signal_functions);
+	lua_setfield(L, -1, "__index");
+
 	static const struct luaL_Reg l_base_functions[] = {
 		{ "new", l_aml_new },
 		{ "set_default", l_aml_set_default },
@@ -358,8 +423,8 @@ int luaopen_aml(struct lua_State* L)
 		{ "handler_new", l_aml_handler_new },
 		{ "timer_new", l_aml_timer_new },
 		{ "ticker_new", l_aml_ticker_new },
+		{ "signal_new", l_aml_signal_new },
 // TODO:
-//		{ "signal_new", l_aml_signal_new },
 //		{ "idle_new", l_aml_idle_new },
 		{ NULL, NULL }
 	};
