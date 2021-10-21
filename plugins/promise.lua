@@ -9,15 +9,17 @@ function is_promise(v)
 	return v ~= nil and type(v) == 'table' and getmetatable(v) == mt
 end
 
-function mt:resolve(result)
+function mt:resolve(...)
 	if (self.state ~= 'pending') then
 		error("Promise is not pending")
 	end
 
-	if (is_promise(result)) then
+	local first = ...
+
+	if (is_promise(first)) then
 		local p = result
-		rawset(p, 'on_fulfilled', function(r)
-			self:resolve(r)
+		rawset(p, 'on_fulfilled', function(...)
+			self:resolve(...)
 		end)
 		return
 	end
@@ -26,7 +28,7 @@ function mt:resolve(result)
 	rawset(self, 'result', result)
 
 	if (self.on_fulfilled) then
-		self.on_fulfilled(result)
+		self.on_fulfilled(...)
 	end
 end
 
@@ -44,8 +46,8 @@ end
 
 function mt:thus(cb)
 	return promise(function(resolve, reject)
-		rawset(self, 'on_fulfilled', function(result)
-			resolve(cb(result))
+		rawset(self, 'on_fulfilled', function(...)
+			resolve(cb(...))
 		end)
 	end)
 end
@@ -63,7 +65,7 @@ end
 promise = function(cb)
 	local p = create_promise()
 
-	cb(function(result) p:resolve(result) end, function() p:reject() end)
+	cb(function(...) p:resolve(...) end, function() p:reject() end)
 
 	return p
 end
