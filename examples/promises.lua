@@ -6,7 +6,7 @@ local aml = require 'aml'
 local loop = aml.new()
 
 function sleep(duration)
-	return promise(function(resolve, reject)
+	return promise(function(resolve)
 		local timer = aml.timer_new(duration, function()
 			resolve()
 		end)

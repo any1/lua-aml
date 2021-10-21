@@ -16,7 +16,7 @@ function emit_event(cb)
 end
 
 function sleep(duration)
-	return promise(function(resolve, reject)
+	return promise(function(resolve)
 		local timer = aml.timer_new(duration, function()
 			emit_event(resolve)
 		end)
@@ -25,7 +25,7 @@ function sleep(duration)
 end
 
 function read_line_from_stdin()
-	return promise(function(resolve, reject)
+	return promise(function(resolve)
 		local handler = aml.handler_new(0, function(handler)
 			emit_event(function()
 				resolve(io.read())
