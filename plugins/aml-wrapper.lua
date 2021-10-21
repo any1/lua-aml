@@ -40,12 +40,6 @@ function loop_mt:run()
 	while self.do_run do
 		self:poll(-1)
 		self:dispatch()
-
-		for _,entry in ipairs(self.queue) do
-			entry.cb(unpack(entry.args))
-		end
-
-		self.queue = {}
 	end
 end
 
@@ -59,7 +53,13 @@ function loop_mt:poll(timeout)
 end
 
 function loop_mt:dispatch()
-	return self.loop:dispatch()
+	self.loop:dispatch()
+
+	for _,entry in ipairs(self.queue) do
+		entry.cb(unpack(entry.args))
+	end
+
+	self.queue = {}
 end
 
 function loop_mt:interrupt()
