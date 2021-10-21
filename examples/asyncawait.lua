@@ -1,6 +1,6 @@
 #!/usr/bin/luajit
 
-local aml = require 'aml'
+local aml = require 'aml-wrapper'
 local promise = require 'promise'
 local async = require 'async'
 
@@ -8,17 +8,10 @@ local SIGINT = 2
 
 local loop = aml.new()
 
-local do_run = true
-local event_queue = {}
-
-function emit_event(cb)
-	event_queue[#event_queue + 1] = cb
-end
-
 function sleep(duration)
 	return promise(function(resolve)
-		local timer = aml.timer_new(duration, function()
-			emit_event(resolve)
+		local timer = loop:timer_new(duration, function()
+			resolve()
 		end)
 		loop:start(timer)
 	end)
@@ -26,10 +19,8 @@ end
 
 function read_line_from_stdin()
 	return promise(function(resolve)
-		local handler = aml.handler_new(0, function(handler)
-			emit_event(function()
-				resolve(io.read())
-			end)
+		local handler = loop:handler_new(0, function(handler)
+			resolve(io.read())
 			loop:stop(handler)
 		end)
 		loop:start(handler)
@@ -38,8 +29,8 @@ end
 
 function signal(signo)
 	return promise(function(resolve)
-		local sig = aml.signal_new(signo, function(sig)
-			emit_event(resolve)
+		local sig = loop:signal_new(signo, function(sig)
+			resolve()
 			loop:stop(sig)
 		end)
 		loop:start(sig)
@@ -69,7 +60,6 @@ async(function(await)
 
 	print "Done!"
 
-	do_run = false
 	loop:exit()
 end)
 
@@ -78,19 +68,7 @@ async(function(await)
 
 	print "Received signal. Exiting..."
 
-	do_run = false
 	loop:exit()
 end)
 
--- Lua 5.1 can't yield across C call boundary, so callbacks are queued and
--- dispatched later from lua
-while do_run do
-	loop:poll(-1)
-	loop:dispatch()
-
-	for _,cb in ipairs(event_queue) do
-		cb()
-	end
-
-	event_queue = {}
-end
+loop:run()
