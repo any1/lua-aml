@@ -129,6 +129,71 @@ static int l_aml_handler_gc(struct lua_State* L)
 	return 0;
 }
 
+static int l_aml_handler_get_fd(struct lua_State* L)
+{
+	struct l_aml_handler* ud = luaL_checkudata(L, 1, "meta_aml_handler");
+	lua_pushinteger(L, aml_get_fd(ud->handler));
+	return 1;
+}
+
+static int l_aml_events_to_table(struct lua_State* L, enum aml_event events)
+{
+	lua_newtable(L);
+
+	if (events & AML_EVENT_READ) {
+		lua_pushboolean(L, true);
+		lua_setfield(L, -2, "read");
+	}
+
+	if (events & AML_EVENT_WRITE) {
+		lua_pushboolean(L, true);
+		lua_setfield(L, -2, "write");
+	}
+
+	return 1;
+}
+
+static enum aml_event l_aml_events_from_table(struct lua_State* L, int index)
+{
+	enum aml_event events = AML_EVENT_NONE;
+
+	lua_getfield(L, index, "read");
+	if (lua_toboolean(L, -1))
+		events |= AML_EVENT_READ;
+	lua_pop(L, 1);
+
+	lua_getfield(L, index, "write");
+	if (lua_toboolean(L, -1))
+		events |= AML_EVENT_WRITE;
+	lua_pop(L, 1);
+
+	return events;
+}
+
+static int l_aml_handler_get_revents(struct lua_State* L)
+{
+	struct l_aml_handler* ud = luaL_checkudata(L, 1, "meta_aml_handler");
+	enum aml_event events = aml_get_revents(ud->handler);
+	return l_aml_events_to_table(L, events);
+}
+
+static int l_aml_handler_get_event_mask(struct lua_State* L)
+{
+	struct l_aml_handler* ud = luaL_checkudata(L, 1, "meta_aml_handler");
+	enum aml_event events = aml_get_event_mask(ud->handler);
+	return l_aml_events_to_table(L, events);
+}
+
+static int l_aml_handler_set_event_mask(struct lua_State* L)
+{
+	struct l_aml_handler* ud = luaL_checkudata(L, 1, "meta_aml_handler");
+	luaL_checktype(L, 2, LUA_TTABLE);
+
+	enum aml_event events = l_aml_events_from_table(L, 2);
+	aml_set_event_mask(ud->handler, events);
+	return 0;
+}
+
 static void l_aml_timer_callback(void* obj)
 {
 	 struct l_aml_timer* ud = aml_get_userdata(obj);
@@ -373,9 +438,10 @@ int luaopen_aml(struct lua_State* L)
 
 	static const struct luaL_Reg l_aml_handler_functions[] = {
 		{ "__gc", l_aml_handler_gc },
-// TODO:
-//		{ "get_fd", l_aml_handler_get_fd },
-//		{ "get_revents", l_aml_handler_get_revents },
+		{ "get_fd", l_aml_handler_get_fd },
+		{ "get_revents", l_aml_handler_get_revents },
+		{ "get_event_mask", l_aml_handler_get_event_mask },
+		{ "set_event_mask", l_aml_handler_set_event_mask },
 		{ NULL, NULL }
 	};
 
